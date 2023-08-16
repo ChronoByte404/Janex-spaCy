@@ -1,0 +1,13 @@
+LICENSE
+README.md
+setup.py
+JanexSC/__init__.py
+JanexSC/chat.py
+JanexSC/main.py
+JanexSC.egg-info/PKG-INFO
+JanexSC.egg-info/SOURCES.txt
+JanexSC.egg-info/dependency_links.txt
+JanexSC.egg-info/requires.txt
+JanexSC.egg-info/top_level.txt
+JanexSC/JanexSub/JanexSub.py
+JanexSC/JanexSub/__init__.py
