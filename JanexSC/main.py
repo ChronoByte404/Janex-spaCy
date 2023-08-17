@@ -13,6 +13,8 @@ import numpy as np
 
 class JanexSpacy:
     def __init__(self, intents_file_path, thesaurus_file_path, vectors_file_path):
+        self.intents_file_path = intents_file_path
+        self.vectors_file_path = vectors_file_path
         self.JVanilla = IntentMatcher(intents_file_path, thesaurus_file_path)
         self.nlp = spacy.load("en_core_web_sm")
         self.intents = self.JVanilla.train()
@@ -23,15 +25,28 @@ class JanexSpacy:
             with open(vectors_file_path, "r") as vectors_file:
                 self.pattern_vectors = json.load(vectors_file)
         else:
+            print(f"JanexSC: Your intents haven't been compiled into vectors. Automatically training your current {self.intents_file_path} data into {self.vectors_file_path}.")
             self.pattern_vectors = {}
+            patterncount = 0
+            responsecount = 0
             for intent_class in self.intents["intents"]:
                 for pattern in intent_class["patterns"]:
                     patterns = self.intentmatcher.tokenize(pattern)
                     pattern = " ".join(patterns)
                     pattern_vector = self.nlp(pattern).vector
-                    self.pattern_vectors[pattern] = pattern_vector.tolist()  # Convert to list for JSON serialization
+                    self.pattern_vectors[pattern] = pattern_vector.tolist()
+                    patterncount += 1
+                 # Convert to list for JSON serialization
+                for response in intent_class["responses"]:
+                     responses = self.intentmatcher.tokenize(response)
+                     response = " ".join(responses)
+                     pattern_vector = self.nlp(response).vector
+                     self.pattern_vectors[response] = pattern_vector.tolist()
+                     responsecount +=1
             with open(vectors_file_path, "w") as vectors_file:
                 json.dump(self.pattern_vectors, vectors_file)
+
+            print(f"JanexSC: Training completed. {patterncount} patterns & {responsecount} responses transformed into vectors.")
 
     def pattern_compare(self, input_string):
         intent_class, similarity = self.intentmatcher.pattern_compare(input_string)
