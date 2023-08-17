@@ -26,6 +26,8 @@ class JanexSpacy:
             self.pattern_vectors = {}
             for intent_class in self.intents["intents"]:
                 for pattern in intent_class["patterns"]:
+                    patterns = self.intentmatcher.tokenize(pattern)
+                    pattern = " ".join(patterns)
                     pattern_vector = self.nlp(pattern).vector
                     self.pattern_vectors[pattern] = pattern_vector.tolist()  # Convert to list for JSON serialization
             with open(vectors_file_path, "w") as vectors_file:
@@ -41,6 +43,9 @@ class JanexSpacy:
         threshold = 0.085
 
         responses = intent_class["responses"] if intent_class else []
+
+        input_strings = self.intentmatcher.tokenize(input_string)
+        input_string = " ".join(input_strings)
 
         input_doc = self.nlp(input_string)
 
