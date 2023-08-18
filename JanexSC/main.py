@@ -101,11 +101,7 @@ class JanexSpacy:
                     token_vector = np.resize(token_vector, self.vector_dim)
                 input_vector += token_vector
             else:
-                token_vector = self.nlp(token).vector
-                if len(token_vector) != self.vector_dim:
-                    # Resize the token_vector to match the dimension of input_vector
-                    token_vector = np.resize(token_vector, self.vector_dim)
-                input_vector += token_vector
+                pass
 
         for response in responses:
             if response:
@@ -120,7 +116,7 @@ class JanexSpacy:
         if most_similar_response is not None:
             return most_similar_response
         else:
-            most_similar_response = self.legacy_response_compare(input_string, intent_class)
+            most_similar_response = self.intentmatcher.response_compare(input_string, intent_class)
             return most_similar_response
 
     def legacy_pattern_compare(self, input_string):
