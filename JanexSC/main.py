@@ -30,7 +30,98 @@ class JanexSpacy:
 
         self.misunderstanding = ["Sorry, I did not understand what you asked.", "Sorry, I'm not programmed to talk about that.", "I couldn't find a match to what you said in my database.", "Sorry, I didn't quite catch that.", "Sorry, I did not interpret what you said."]
 
+        self.vector_dim = 300
+
+    def load_vectors(self):
+        with open(self.vectors_file_path, "r") as vector_file:
+            pattern_vectors = json.load(vector_file)
+            return pattern_vectors
+
     def pattern_compare(self, input_string):
+        self.pattern_vectors = self.load_vectors()
+        highest_similarity = 0
+        most_similar_pattern = None
+        threshold = 0.085
+
+        input_tokens = self.intentmatcher.tokenize(input_string)
+        input_vector = np.zeros(self.vector_dim)
+
+        for token in input_tokens:
+            if token in self.pattern_vectors:
+                token_vector = self.pattern_vectors[token]
+                if len(token_vector) != self.vector_dim:
+                    # Resize the token_vector to match the dimension of input_vector
+                    token_vector = np.resize(token_vector, self.vector_dim)
+                input_vector += token_vector
+            else:
+                token_vector = self.nlp(token).vector
+                if len(token_vector) != self.vector_dim:
+                    # Resize the token_vector to match the dimension of input_vector
+                    token_vector = np.resize(token_vector, self.vector_dim)
+                input_vector += token_vector
+
+        for intent_class in self.intents["intents"]:
+            patterns = intent_class["patterns"] if intent_class else []
+
+            for pattern in patterns:
+                if pattern:
+                    if pattern in self.pattern_vectors:
+                        pattern_vector = np.array(self.pattern_vectors[pattern])
+                        similarity = self.calculate_cosine_similarity(input_vector, pattern_vector)
+
+                        if similarity > highest_similarity:
+                            highest_similarity = similarity
+                            most_similar_pattern = intent_class
+
+        if most_similar_pattern:
+            return most_similar_pattern
+        else:
+            msp = self.legacy_pattern_compare(input_string)
+            return msp
+
+    def response_compare(self, input_string, intent_class):
+        self.pattern_vectors = self.load_vectors()
+        highest_similarity = 0
+        most_similar_response = None
+        threshold = 0.085
+
+        responses = intent_class["responses"] if intent_class else []
+
+        input_tokens = self.intentmatcher.tokenize(input_string)
+
+        input_vector = np.zeros(self.vector_dim)  # Initialize an empty vector
+
+        for token in input_tokens:
+            if token in self.pattern_vectors:
+                token_vector = self.pattern_vectors[token]
+                if len(token_vector) != self.vector_dim:
+                    # Resize the token_vector to match the dimension of input_vector
+                    token_vector = np.resize(token_vector, self.vector_dim)
+                input_vector += token_vector
+            else:
+                token_vector = self.nlp(token).vector
+                if len(token_vector) != self.vector_dim:
+                    # Resize the token_vector to match the dimension of input_vector
+                    token_vector = np.resize(token_vector, self.vector_dim)
+                input_vector += token_vector
+
+        for response in responses:
+            if response:
+                if response in self.pattern_vectors:
+                    response_vector = np.array(self.pattern_vectors[response])
+                    similarity = self.calculate_cosine_similarity(input_vector, response_vector)
+
+                    if similarity > highest_similarity:
+                        highest_similarity = similarity
+                        most_similar_response = response
+
+        if most_similar_response is not None:
+            return most_similar_response
+        else:
+            most_similar_response = self.legacy_response_compare(input_string, intent_class)
+            return most_similar_response
+
+    def legacy_pattern_compare(self, input_string):
         highest_similarity = 0
         most_similar_pattern = None
         threshold = 0.085
@@ -62,7 +153,7 @@ class JanexSpacy:
         else:
             return random.choice(self.misunderstanding)
 
-    def response_compare(self, input_string, intent_class):
+    def legacy_response_compare(self, input_string, intent_class):
         highest_similarity = 0
         most_similar_response = None
         threshold = 0.085
@@ -95,12 +186,21 @@ class JanexSpacy:
             return most_similar_response
 
     def calculate_cosine_similarity(self, vector1, vector2):
-        dot_product = np.dot(vector1, vector2)
-        norm1 = np.linalg.norm(vector1)
-        norm2 = np.linalg.norm(vector2)
+        # Resize vectors to a common dimension
+        target_dim = 300
+        vector1 = np.resize(vector1, target_dim)
+        vector2 = np.resize(vector2, target_dim)
 
-        cosine_similarity = dot_product / (norm1 * norm2)
-        return cosine_similarity
+        # Calculate cosine similarity between two vectors
+        dot_product = np.dot(vector1, vector2)
+        norm_vector1 = np.linalg.norm(vector1)
+        norm_vector2 = np.linalg.norm(vector2)
+
+        if norm_vector1 == 0 or norm_vector2 == 0:
+            return 0  # Handle zero division case
+
+        similarity = dot_product / (norm_vector1 * norm_vector2)
+        return similarity
 
     def update_thesaurus(self):
         self.intentmatcher.update_thesaurus(self.thesaurus_file_path)
@@ -116,7 +216,6 @@ class JanexSpacy:
 
     def trainvectors(self):
         self.pattern_vectors = {}
-        self.response_vectors = {}
         patterncount = 0
         responsecount = 0
         patterntoks = 0
@@ -129,15 +228,8 @@ class JanexSpacy:
                     self.pattern_vectors[token] = token_vector.tolist()
                     patterntoks += 1
                 patterncount += 1
-             # Convert to list for JSON serialization
-            for response in intent_class["responses"]:
-                 responses = self.intentmatcher.tokenize(response)
-                 for token in responses:
-                     token_vector = self.nlp(token).vector
-                     self.response_vectors[token] = token_vector.tolist()
-                     responsetoks += 1
-                 responsecount +=1
+
         with open(self.vectors_file_path, "w") as vectors_file:
             json.dump(self.pattern_vectors, vectors_file)
 
-        print(f"JanexSC: Training completed. {patterncount} patterns ({patterntoks} tokens) & {responsecount} responses ({responsetoks} tokens) transformed into vectors.")
+        print(f"JanexSC: Training completed. {patterncount} patterns ({patterntoks} tokens) transformed into vectors.")
