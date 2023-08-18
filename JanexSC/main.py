@@ -32,13 +32,16 @@ class JanexSpacy:
 
         self.vector_dim = 300
 
+        self.pattern_vectors = None
+
     def load_vectors(self):
         with open(self.vectors_file_path, "r") as vector_file:
             pattern_vectors = json.load(vector_file)
             return pattern_vectors
 
     def pattern_compare(self, input_string):
-        self.pattern_vectors = self.load_vectors()
+        if self.pattern_vectors is None:
+            self.pattern_vectors = self.load_vectors()
         highest_similarity = 0
         most_similar_pattern = None
         threshold = 0.085
@@ -76,11 +79,10 @@ class JanexSpacy:
         if most_similar_pattern:
             return most_similar_pattern
         else:
-            msp = self.legacy_pattern_compare(input_string)
+            msp, sim = self.intentmatcher.pattern_compare(input_string)
             return msp
 
     def response_compare(self, input_string, intent_class):
-        self.pattern_vectors = self.load_vectors()
         highest_similarity = 0
         most_similar_response = None
         threshold = 0.085
