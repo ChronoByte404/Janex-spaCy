@@ -1,6 +1,11 @@
 LICENSE
 README.md
 setup.py
+Janex/__init__.py
+Janex/chat.py
+Janex/main.py
+Janex/JanexSub/JanexSub.py
+Janex/JanexSub/__init__.py
 JanexSC/__init__.py
 JanexSC/chat.py
 JanexSC/main.py

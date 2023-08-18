@@ -26,31 +26,41 @@ class JanexSpacy:
                 self.pattern_vectors = json.load(vectors_file)
         else:
             print(f"JanexSC: Your intents haven't been compiled into vectors. Automatically training your current {self.intents_file_path} data into {self.vectors_file_path}.")
-            self.pattern_vectors = {}
-            patterncount = 0
-            responsecount = 0
-            for intent_class in self.intents["intents"]:
-                for pattern in intent_class["patterns"]:
-                    patterns = self.intentmatcher.tokenize(pattern)
-                    pattern = " ".join(patterns)
-                    pattern_vector = self.nlp(pattern).vector
-                    self.pattern_vectors[pattern] = pattern_vector.tolist()
-                    patterncount += 1
-                 # Convert to list for JSON serialization
-                for response in intent_class["responses"]:
-                     responses = self.intentmatcher.tokenize(response)
-                     response = " ".join(responses)
-                     pattern_vector = self.nlp(response).vector
-                     self.pattern_vectors[response] = pattern_vector.tolist()
-                     responsecount +=1
-            with open(vectors_file_path, "w") as vectors_file:
-                json.dump(self.pattern_vectors, vectors_file)
+            self.trainvectors()
 
-            print(f"JanexSC: Training completed. {patterncount} patterns & {responsecount} responses transformed into vectors.")
+        self.misunderstanding = ["Sorry, I did not understand what you asked.", "Sorry, I'm not programmed to talk about that.", "I couldn't find a match to what you said in my database.", "Sorry, I didn't quite catch that.", "Sorry, I did not interpret what you said."]
 
     def pattern_compare(self, input_string):
-        intent_class, similarity = self.intentmatcher.pattern_compare(input_string)
-        return intent_class
+        highest_similarity = 0
+        most_similar_pattern = None
+        threshold = 0.085
+
+        for intent_class in self.intents["intents"]:
+
+            patterns = intent_class["patterns"] if intent_class else []
+
+            input_strings = self.intentmatcher.tokenize(input_string)
+            input_string = " ".join(input_strings)
+
+            input_doc = self.nlp(input_string)
+
+            for pattern in patterns:
+                if pattern is not None:
+                    pattern_vector = self.nlp(pattern).vector  # Precompute vector
+                    try:
+                        similarity = self.calculate_cosine_similarity(input_doc.vector, pattern_vector)
+                    except:
+                        return random.choice(self.misunderstanding)
+                if similarity > highest_similarity:
+                    highest_similarity = similarity
+                    most_similar_pattern = intent_class
+                else:
+                    pass
+
+        if most_similar_pattern and highest_similarity > threshold:
+            return most_similar_pattern
+        else:
+            return random.choice(self.misunderstanding)
 
     def response_compare(self, input_string, intent_class):
         highest_similarity = 0
@@ -70,7 +80,7 @@ class JanexSpacy:
                 try:
                     similarity = self.calculate_cosine_similarity(input_doc.vector, response_vector)
                 except:
-                    return "Sorry, I did not understand your input. Try asking something else."
+                    return random.choice(self.misunderstanding)
 
                 if similarity > highest_similarity:
                     highest_similarity = similarity
@@ -103,3 +113,31 @@ class JanexSpacy:
     def ResponseGenerator(self, input_string):
         NewResponse = self.intentmatcher.ResponseGenerator(input_string)
         return NewResponse
+
+    def trainvectors(self):
+        self.pattern_vectors = {}
+        self.response_vectors = {}
+        patterncount = 0
+        responsecount = 0
+        patterntoks = 0
+        responsetoks = 0
+        for intent_class in self.intents["intents"]:
+            for pattern in intent_class["patterns"]:
+                patterns = self.intentmatcher.tokenize(pattern)
+                for token in patterns:
+                    token_vector = self.nlp(token).vector
+                    self.pattern_vectors[token] = token_vector.tolist()
+                    patterntoks += 1
+                patterncount += 1
+             # Convert to list for JSON serialization
+            for response in intent_class["responses"]:
+                 responses = self.intentmatcher.tokenize(response)
+                 for token in responses:
+                     token_vector = self.nlp(token).vector
+                     self.response_vectors[token] = token_vector.tolist()
+                     responsetoks += 1
+                 responsecount +=1
+        with open(self.vectors_file_path, "w") as vectors_file:
+            json.dump(self.pattern_vectors, vectors_file)
+
+        print(f"JanexSC: Training completed. {patterncount} patterns ({patterntoks} tokens) & {responsecount} responses ({responsetoks} tokens) transformed into vectors.")
