@@ -226,6 +226,7 @@ class JanexSpacy:
                     self.pattern_vectors[token] = token_vector.tolist()
                     patterntoks += 1
                 patterncount += 1
+                print(f"{token}: {token_vector}")
 
         with open(self.vectors_file_path, "w") as vectors_file:
             json.dump(self.pattern_vectors, vectors_file)
